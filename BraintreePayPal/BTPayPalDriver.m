@@ -581,64 +581,124 @@ typedef NS_ENUM(NSUInteger, BTPayPalPaymentType) {
 }
 
 - (void)performSwitchRequest:(NSURL *)appSwitchURL {
+
     [self informDelegateAppContextWillSwitch];
+
     if (@available(iOS 11.0, *)) {
+
         NSURLComponents *urlComponents = [NSURLComponents componentsWithURL:appSwitchURL resolvingAgainstBaseURL:NO];
+
+
 
         if (self.disableSFAuthenticationSession) {
+
             // Append "force-one-touch" query param when One Touch functions correctly
+
             NSString *queryForAuthSession = [urlComponents.query stringByAppendingString:@"&bt_int_type=1"];
+
             urlComponents.query = queryForAuthSession;
+
             [self informDelegatePresentingViewControllerRequestPresent:urlComponents.URL];
+
         } else {
+
             NSString *queryForAuthSession = [urlComponents.query stringByAppendingString:@"&bt_int_type=2"];
+
             urlComponents.query = queryForAuthSession;
+
             self.safariAuthenticationSession = [[SFAuthenticationSession alloc] initWithURL:urlComponents.URL
+
                                                                           callbackURLScheme:self.returnURLScheme
+
                                                                           completionHandler:^(NSURL * _Nullable callbackURL, NSError * _Nullable error)
+
             {
+
                 if (error) {
-                    if (error.domain == SFAuthenticationErrorDomain && error.code == SFAuthenticationErrorCanceledLogin) {
+
+//                    if (error.domain == SFAuthenticationErrorDomain && error.code == SFAuthenticationErrorCanceledLogin) {
+
                         if (self.becameActiveAfterSFAuthenticationSessionModal) {
+
                             [self.apiClient sendAnalyticsEvent:@"ios.sfauthsession.cancel.web"];
+
                         } else {
+
                             [self.apiClient sendAnalyticsEvent:@"ios.sfauthsession.cancel.modal"];
+
                         }
-                    }
+
+//                    }
+
+
 
                     [self.class handleAppSwitchReturnURL:[NSURL URLWithString:SFSafariViewControllerFinishedURL]];
+
                     return;
+
                 }
+
                 [BTAppSwitch handleOpenURL:callbackURL sourceApplication:@"com.apple.safariviewservice"];
+
                 self.safariAuthenticationSession = nil;
+
             }];
+
             if (self.safariAuthenticationSession != nil) {
+
                 self.becameActiveAfterSFAuthenticationSessionModal = NO;
+
                 self.isSFAuthenticationSessionStarted = [self.safariAuthenticationSession start];
+
                 if (self.isSFAuthenticationSessionStarted) {
+
                     [self.apiClient sendAnalyticsEvent:@"ios.sfauthsession.start.succeeded"];
+
                 } else {
+
                     [self.apiClient sendAnalyticsEvent:@"ios.sfauthsession.start.failed"];
+
                 }
+
             }
+
         }
+
     } else if (@available(iOS 9.0, *)) {
+
         NSURLComponents *urlComponents = [NSURLComponents componentsWithURL:appSwitchURL resolvingAgainstBaseURL:NO];
+
         NSString *queryForAuthSession = [urlComponents.query stringByAppendingString:@"&bt_int_type=1"];
+
         urlComponents.query = queryForAuthSession;
+
         [self informDelegatePresentingViewControllerRequestPresent:urlComponents.URL];
+
     } else {
+
         UIApplication *application = [UIApplication sharedApplication];
+
         if (@available(iOS 10.0, *)) {
+
             [application openURL:appSwitchURL options:[NSDictionary dictionary] completionHandler:nil];
+
         } else {
+
 #pragma clang diagnostic push
+
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
             [application openURL:appSwitchURL];
+
 #pragma clang diagnostic pop
+
         }
+
     }
+
 }
+
+
 
 - (NSString *)payPalEnvironmentForRemoteConfiguration:(BTJSON *)configuration {
     NSString *btPayPalEnvironmentName = [configuration[@"paypal"][@"environment"] asString];
